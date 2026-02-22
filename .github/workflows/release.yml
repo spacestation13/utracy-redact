@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    branches: [master]
+    paths: [Cargo.toml]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag does not already exist
+        shell: bash
+        run: |
+          if git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.value }}" | grep -q .; then
+            echo "Tag v${{ steps.version.outputs.value }} already exists — skipping release."
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: v${{ steps.version.outputs.value }}
+          files: target/release/utracy-redact.exe
