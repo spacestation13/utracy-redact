@@ -42,11 +42,6 @@ utracy-redact.exe myfile.utracy --in-place
 utracy-redact.exe myfile.utracy --file-marker secret_code --fn-marker internal
 ```
 
-## How it works
+### License
 
-Scans the `.utracy` file's source location table. Replaces `name`, `function`, and `file` fields with `<redacted>` for any srcloc where:
-
-- **file path** contains any `--file-marker` value (case-sensitive), OR
-- **function name** contains any `--fn-marker` value (case-insensitive)
-
-The raw event stream is bulk-copied verbatim to preserve binary fidelity.
+[GPL-3.0](./LICENSE)
