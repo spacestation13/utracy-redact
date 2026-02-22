@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 
 // .utracy file constants
@@ -52,7 +52,8 @@ struct Cli {
 
 fn read_lenpfx_string<R: Read>(r: &mut R) -> Result<String> {
     let mut len_buf = [0u8; 4];
-    r.read_exact(&mut len_buf).context("reading string length")?;
+    r.read_exact(&mut len_buf)
+        .context("reading string length")?;
     let len = u32::from_le_bytes(len_buf) as usize;
     let mut bytes = vec![0u8; len];
     r.read_exact(&mut bytes).context("reading string bytes")?;
@@ -60,7 +61,8 @@ fn read_lenpfx_string<R: Read>(r: &mut R) -> Result<String> {
 }
 
 fn write_lenpfx_string<W: Write>(w: &mut W, s: &str) -> Result<()> {
-    w.write_all(&(s.len() as u32).to_le_bytes()).context("writing string length")?;
+    w.write_all(&(s.len() as u32).to_le_bytes())
+        .context("writing string length")?;
     w.write_all(s.as_bytes()).context("writing string bytes")
 }
 
@@ -77,8 +79,7 @@ fn resolve_output(cli: &Cli) -> Result<Option<PathBuf>> {
         return Ok(None); // we'll use a temp file; handled separately
     }
 
-    let canonical_in = fs::canonicalize(&cli.input)
-        .unwrap_or_else(|_| cli.input.clone());
+    let canonical_in = fs::canonicalize(&cli.input).unwrap_or_else(|_| cli.input.clone());
 
     if let Some(p) = &cli.output {
         let canonical_out = fs::canonicalize(p).unwrap_or_else(|_| p.clone());
@@ -126,9 +127,7 @@ fn process<R: Read, W: Write>(
     // Validate signature (u64 LE at offset 0)
     let sig = u64::from_le_bytes(header[SIG_OFFSET..SIG_OFFSET + 8].try_into().unwrap());
     if sig != FILE_SIGNATURE {
-        bail!(
-            "invalid .utracy signature: got 0x{sig:016X}, expected 0x{FILE_SIGNATURE:016X}"
-        );
+        bail!("invalid .utracy signature: got 0x{sig:016X}, expected 0x{FILE_SIGNATURE:016X}");
     }
 
     // Validate version (u32 LE at offset 8)
@@ -155,7 +154,10 @@ fn process<R: Read, W: Write>(
     }
 
     // -- Srcloc table --------------------------------------------------------
-    let file_markers_lower: Vec<String> = file_markers.iter().map(|m| m.to_ascii_lowercase()).collect();
+    let file_markers_lower: Vec<String> = file_markers
+        .iter()
+        .map(|m| m.to_ascii_lowercase())
+        .collect();
     let fn_markers_lower: Vec<String> = fn_markers.iter().map(|m| m.to_ascii_lowercase()).collect();
     let mut redacted_fns = Vec::new();
 
@@ -175,8 +177,12 @@ fn process<R: Read, W: Write>(
 
         let file_lower = file.to_ascii_lowercase();
         let fn_lower = function.to_ascii_lowercase();
-        let secret = file_markers_lower.iter().any(|m| file_lower.contains(m.as_str()))
-            || fn_markers_lower.iter().any(|m| fn_lower.contains(m.as_str()));
+        let secret = file_markers_lower
+            .iter()
+            .any(|m| file_lower.contains(m.as_str()))
+            || fn_markers_lower
+                .iter()
+                .any(|m| fn_lower.contains(m.as_str()));
 
         if secret {
             redacted_fns.push(function.clone());
@@ -192,7 +198,9 @@ fn process<R: Read, W: Write>(
             write_lenpfx_string(writer, out_fn).context("writing srcloc.function")?;
             write_lenpfx_string(writer, out_file).context("writing srcloc.file")?;
             writer.write_all(&line_buf).context("writing srcloc.line")?;
-            writer.write_all(&color_buf).context("writing srcloc.color")?;
+            writer
+                .write_all(&color_buf)
+                .context("writing srcloc.color")?;
         }
     }
 
@@ -246,11 +254,17 @@ fn main() -> Result<()> {
     let redacted: Vec<String>;
 
     if let Some(out) = effective_out {
-        let out_file = File::create(out)
-            .with_context(|| format!("creating output: {}", out.display()))?;
+        let out_file =
+            File::create(out).with_context(|| format!("creating output: {}", out.display()))?;
         let mut writer = BufWriter::with_capacity(BUF_SIZE, out_file);
 
-        redacted = process(&mut reader, &mut writer, false, &cli.file_markers, &cli.fn_markers)?;
+        redacted = process(
+            &mut reader,
+            &mut writer,
+            false,
+            &cli.file_markers,
+            &cli.fn_markers,
+        )?;
 
         writer.flush().context("flushing output")?;
     } else {
